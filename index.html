@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Klarik</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #F7F6F3;
+  --surface:  #FFFFFF;
+  --navy:     #0E1E35;
+  --navy2:    #1A3054;
+  --blue:     #1D4ED8;
+  --blue-l:   #EFF4FF;
+  --text:     #0E1E35;
+  --muted:    #6B7A8D;
+  --border:   #E4E7EB;
+  --green:    #16A34A;
+  --red:      #DC2626;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Geist', sans-serif;
+  min-height: 100vh;
+  font-size: 15px;
+}
+
+/* ── AUTH ── */
+.auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--navy);
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-wrap::before {
+  content: '';
+  position: absolute;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(29,78,216,0.15) 0%, transparent 70%);
+  top: -100px; right: -100px;
+  pointer-events: none;
+}
+
+.auth-wrap::after {
+  content: '';
+  position: absolute;
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(29,78,216,0.08) 0%, transparent 70%);
+  bottom: -50px; left: -50px;
+  pointer-events: none;
+}
+
+.auth-box {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 24px;
+  padding: 40px 36px;
+  position: relative;
+  z-index: 1;
+  backdrop-filter: blur(20px);
+}
+
+.auth-logo {
+  font-family: 'Instrument Serif', serif;
+  font-size: 32px;
+  color: #fff;
+  margin-bottom: 6px;
+  letter-spacing: -0.02em;
+}
+.auth-logo span { color: #60A5FA; font-style: italic; }
+.auth-tagline { font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 36px; font-weight: 300; }
+
+.tab-row {
+  display: flex;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 28px;
+}
+.tab {
+  flex: 1; text-align: center; padding: 8px;
+  border-radius: 8px; font-size: 13px; font-weight: 500;
+  cursor: pointer; color: rgba(255,255,255,0.45);
+  transition: all 0.2s; border: none; background: none;
+  font-family: 'Geist', sans-serif;
+}
+.tab.on { background: rgba(255,255,255,0.1); color: #fff; }
+
+.f-label {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: rgba(255,255,255,0.35);
+  display: block; margin-bottom: 7px;
+}
+.f-input {
+  width: 100%; background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 14px; color: #fff;
+  font-family: 'Geist', sans-serif; outline: none;
+  margin-bottom: 16px; transition: border-color 0.2s;
+}
+.f-input:focus { border-color: rgba(96,165,250,0.5); }
+.f-input::placeholder { color: rgba(255,255,255,0.2); }
+
+.auth-btn {
+  width: 100%; background: #1D4ED8; color: #fff;
+  border: none; border-radius: 10px; padding: 13px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: 'Geist', sans-serif; transition: all 0.2s;
+  margin-top: 4px;
+}
+.auth-btn:hover { background: #1E40AF; }
+.auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.auth-msg {
+  margin-top: 14px; font-size: 13px; text-align: center;
+  padding: 10px; border-radius: 8px; display: none;
+}
+.auth-msg.ok  { background: rgba(22,163,74,0.15);  color: #4ADE80; display: block; }
+.auth-msg.err { background: rgba(220,38,38,0.15);  color: #FCA5A5; display: block; }
+
+/* ── APP LAYOUT ── */
+.app { display: none; min-height: 100vh; }
+.app.on { display: flex; }
+
+.sidebar {
+  width: 240px; min-height: 100vh;
+  background: var(--navy);
+  display: flex; flex-direction: column;
+  padding: 0; flex-shrink: 0;
+  position: sticky; top: 0; height: 100vh;
+}
+
+.sidebar-top { padding: 28px 24px 24px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.s-logo {
+  font-family: 'Instrument Serif', serif;
+  font-size: 26px; color: #fff; letter-spacing: -0.02em;
+}
+.s-logo span { color: #60A5FA; font-style: italic; }
+.s-sub { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 2px; font-weight: 300; }
+
+.s-nav { padding: 16px 12px; flex: 1; }
+.s-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  font-size: 13px; color: rgba(255,255,255,0.45);
+  cursor: pointer; transition: all 0.2s;
+  border-left: 2px solid transparent; margin-bottom: 2px;
+  user-select: none;
+}
+.s-item:hover { color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.04); }
+.s-item.on { color: #fff; background: rgba(29,78,216,0.2); border-left-color: #60A5FA; }
+.s-icon { font-size: 15px; width: 20px; text-align: center; }
+
+.s-bottom {
+  padding: 16px 24px 24px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.s-email { font-size: 11px; color: rgba(255,255,255,0.25); margin-bottom: 10px; word-break: break-all; }
+.s-signout {
+  font-size: 12px; color: rgba(255,255,255,0.3); cursor: pointer;
+  background: none; border: none; font-family: 'Geist', sans-serif;
+  padding: 0; transition: color 0.2s;
+}
+.s-signout:hover { color: #FCA5A5; }
+
+/* ── MAIN ── */
+.main { flex: 1; padding: 48px 52px; max-width: 720px; overflow-y: auto; }
+
+.page-eyebrow {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--blue); margin-bottom: 8px;
+}
+.page-title {
+  font-family: 'Instrument Serif', serif;
+  font-size: 32px; color: var(--navy); letter-spacing: -0.02em;
+  margin-bottom: 6px; line-height: 1.15;
+}
+.page-sub { font-size: 14px; color: var(--muted); font-weight: 300; margin-bottom: 36px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 28px 32px; margin-bottom: 16px;
+}
+
+.card-section-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 18px;
+}
+
+/* ── INPUT MODE TOGGLE ── */
+.mode-toggle {
+  display: inline-flex;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 3px; margin-bottom: 24px;
+}
+.mode-btn {
+  padding: 8px 16px; border-radius: 7px; font-size: 13px;
+  font-weight: 500; cursor: pointer; color: var(--muted);
+  transition: all 0.2s; border: none; background: none;
+  font-family: 'Geist', sans-serif;
+}
+.mode-btn.on { background: var(--surface); color: var(--navy); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+/* ── FORM FIELDS ── */
+.field-label {
+  font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 7px;
+}
+.field-input {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 11px 14px; font-size: 14px;
+  color: var(--text); font-family: 'Geist', sans-serif;
+  outline: none; transition: border-color 0.2s; margin-bottom: 16px;
+}
+.field-input:focus { border-color: #93C5FD; background: #fff; }
+.field-input::placeholder { color: #C4CAD3; }
+.field-row { display: flex; gap: 12px; }
+.field-row > div { flex: 1; }
+
+select.field-input { cursor: pointer; }
+
+/* ── KEYWORD TEXTAREA ── */
+.kw-textarea {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px; font-size: 14px;
+  color: var(--text); font-family: 'Geist', sans-serif;
+  outline: none; resize: vertical; min-height: 120px;
+  line-height: 1.6; transition: border-color 0.2s;
+}
+.kw-textarea:focus { border-color: #93C5FD; background: #fff; }
+.kw-textarea::placeholder { color: #C4CAD3; }
+
+/* ── DIVIDER ── */
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+/* ── RECORD AREA ── */
+.record-center { display: flex; flex-direction: column; align-items: center; padding: 20px 0 16px; gap: 12px; }
+
+.rec-btn {
+  width: 76px; height: 76px; border-radius: 50%; border: none;
+  cursor: pointer; font-size: 26px; transition: all 0.25s;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--blue); box-shadow: 0 4px 20px rgba(29,78,216,0.3);
+}
+.rec-btn.recording {
+  background: var(--red);
+  box-shadow: 0 4px 20px rgba(220,38,38,0.3);
+  animation: rpulse 1.5s infinite;
+}
+@keyframes rpulse {
+  0%   { box-shadow: 0 0 0 0 rgba(220,38,38,0.4); }
+  70%  { box-shadow: 0 0 0 16px rgba(220,38,38,0); }
+  100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+}
+.rec-btn:hover { transform: scale(1.05); }
+
+.waveform { display: none; align-items: center; gap: 3px; height: 24px; }
+.waveform.on { display: flex; }
+.wbar { width: 3px; border-radius: 2px; background: var(--red); animation: wv 0.9s ease-in-out infinite; }
+.wbar:nth-child(1){animation-delay:0s; height:5px}
+.wbar:nth-child(2){animation-delay:0.1s; height:8px}
+.wbar:nth-child(3){animation-delay:0.2s; height:12px}
+.wbar:nth-child(4){animation-delay:0.3s; height:18px}
+.wbar:nth-child(5){animation-delay:0.2s; height:12px}
+.wbar:nth-child(6){animation-delay:0.1s; height:8px}
+.wbar:nth-child(7){animation-delay:0s; height:5px}
+@keyframes wv { 0%,100%{transform:scaleY(.4);opacity:.5} 50%{transform:scaleY(1);opacity:1} }
+
+.timer { font-family:'Geist',sans-serif; font-size:22px; font-weight:700; color:var(--red); display:none; letter-spacing:0.05em; }
+.timer.on { display:block; }
+.rec-lbl { font-size:14px; font-weight:600; color:var(--navy); }
+.rec-sub { font-size:12px; color:var(--muted); font-weight:300; }
+
+/* ── GENERATE BUTTON ── */
+.gen-btn {
+  width: 100%; background: var(--navy); color: #fff;
+  border: none; border-radius: 12px; padding: 14px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: 'Geist', sans-serif; transition: all 0.2s;
+  margin-top: 8px; letter-spacing: 0.01em;
+}
+.gen-btn:hover { background: var(--navy2); }
+.gen-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── STATUS ── */
+.status-row {
+  display: none; align-items: center; justify-content: center;
+  gap: 10px; padding: 14px; font-size: 13px; color: var(--muted);
+}
+.status-row.on { display: flex; }
+.spin {
+  width: 16px; height: 16px; border: 2px solid var(--border);
+  border-top-color: var(--blue); border-radius: 50%;
+  animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESULT ── */
+.result-card {
+  background: var(--surface); border: 1px solid #BBF7D0;
+  border-radius: 20px; padding: 28px 32px; display: none;
+  animation: fadeUp 0.4s ease; margin-bottom: 16px;
+}
+.result-card.on { display: block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+.result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.result-title { font-family:'Instrument Serif',serif; font-size:20px; color:var(--navy); }
+.result-badge { background:#DCFCE7; color:#15803D; font-size:11px; font-weight:600; padding:4px 12px; border-radius:20px; letter-spacing:0.06em; }
+
+.note-body {
+  background: #FAFAF9; border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; font-size:14px;
+  line-height: 1.8; color: var(--text);
+}
+.note-body strong { color: var(--navy); font-weight: 600; }
+.note-section { margin-bottom: 14px; }
+.note-section:last-child { margin-bottom: 0; }
+
+.result-actions { display: flex; gap: 10px; margin-top: 16px; }
+.copy-btn {
+  flex: 1; background: var(--bg); border: 1px solid var(--border);
+  color: var(--navy); border-radius: 10px; padding: 11px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: 'Geist', sans-serif; transition: all 0.2s;
+}
+.copy-btn:hover { background: var(--border); }
+.save-btn {
+  flex: 1; background: var(--blue); border: none;
+  color: #fff; border-radius: 10px; padding: 11px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: 'Geist', sans-serif; transition: all 0.2s;
+}
+.save-btn:hover { background: #1E40AF; }
+
+/* ── ERROR ── */
+.err-box {
+  background: #FEF2F2; border: 1px solid #FECACA;
+  color: var(--red); border-radius: 10px; padding: 12px 16px;
+  font-size: 13px; margin-top: 12px; display: none; line-height: 1.55;
+}
+.err-box.on { display: block; }
+
+/* ── NOTES LIST ── */
+.notes-list { display: flex; flex-direction: column; gap: 10px; }
+.note-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 20px 24px; cursor: pointer;
+  transition: all 0.2s;
+}
+.note-item:hover { border-color: #93C5FD; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+.ni-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.ni-name { font-family:'Instrument Serif',serif; font-size:17px; color:var(--navy); }
+.ni-date { font-size: 12px; color: var(--muted); font-weight: 300; }
+.ni-treatment { font-size: 12px; color: var(--blue); font-weight: 500; margin-bottom: 8px; }
+.ni-preview { font-size: 13px; color: var(--muted); font-weight: 300; line-height: 1.5; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+.empty-state { text-align: center; padding: 64px 20px; }
+.empty-icon { font-size: 40px; margin-bottom: 16px; opacity: 0.3; }
+.empty-text { font-size: 14px; color: var(--muted); font-weight: 300; line-height: 1.7; }
+
+/* ── MODAL ── */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 100; backdrop-filter: blur(4px); }
+.modal-bg.on { display: flex; }
+.modal { background: var(--surface); border-radius: 24px; padding: 32px; max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto; animation: fadeUp 0.3s ease; }
+.modal-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.modal-name { font-family:'Instrument Serif',serif; font-size:22px; color:var(--navy); }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; transition: color 0.2s; }
+.modal-close:hover { color: var(--red); }
+.modal-meta { font-size: 13px; color: var(--muted); margin-bottom: 20px; font-weight: 300; line-height: 1.7; }
+.modal-note { background: #FAFAF9; border: 1px solid var(--border); border-radius: 12px; padding: 20px; font-size: 14px; line-height: 1.8; color: var(--text); }
+.modal-actions { margin-top: 16px; }
+
+/* ── API KEY BANNER ── */
+.api-banner {
+  background: #FFFBEB; border: 1px solid #FDE68A;
+  border-radius: 14px; padding: 18px 20px; margin-bottom: 20px; display: none;
+}
+.api-banner.on { display: block; }
+.api-banner-title { font-size: 13px; font-weight: 600; color: #92400E; margin-bottom: 10px; }
+.api-row { display: flex; gap: 8px; }
+.api-input {
+  flex: 1; background: #fff; border: 1px solid #FDE68A;
+  border-radius: 8px; padding: 10px 12px; font-size: 13px;
+  color: var(--text); font-family: 'Geist', sans-serif; outline: none;
+}
+.api-input::placeholder { color: #C4CAD3; }
+.api-save { background: #D97706; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Geist', sans-serif; white-space: nowrap; }
+
+/* ── ANIMATIONS ── */
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.auth-box { animation: fadeIn 0.4s ease; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════
+     AUTH
+═══════════════════════════ -->
+<div class="auth-wrap" id="authWrap">
+  <div class="auth-box">
+    <div class="auth-logo">Klari<span>k</span></div>
+    <div class="auth-tagline">AI-journalnotat for tannklinikker</div>
+
+    <div class="tab-row">
+      <button class="tab on" id="tabLogin" onclick="switchTab('login')">Logg inn</button>
+      <button class="tab" id="tabSignup" onclick="switchTab('signup')">Ny konto</button>
+    </div>
+
+    <!-- Login -->
+    <div id="formLogin">
+      <label class="f-label">E-post</label>
+      <input class="f-input" type="email" id="loginEmail" placeholder="lege@klinikk.no"/>
+      <label class="f-label">Passord</label>
+      <input class="f-input" type="password" id="loginPass" placeholder="••••••••"/>
+      <button class="auth-btn" id="loginBtn" onclick="doLogin()">Logg inn</button>
+    </div>
+
+    <!-- Signup -->
+    <div id="formSignup" style="display:none">
+      <label class="f-label">Klinikknavn</label>
+      <input class="f-input" type="text" id="signupClinic" placeholder="Oslo Tannklinikk"/>
+      <label class="f-label">E-post</label>
+      <input class="f-input" type="email" id="signupEmail" placeholder="lege@klinikk.no"/>
+      <label class="f-label">Passord</label>
+      <input class="f-input" type="password" id="signupPass" placeholder="Minst 6 tegn"/>
+      <button class="auth-btn" id="signupBtn" onclick="doSignup()">Opprett konto</button>
+    </div>
+
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════
+     APP
+═══════════════════════════ -->
+<div class="app" id="appWrap">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <div class="s-logo">Klari<span>k</span></div>
+      <div class="s-sub">Dental Intelligence</div>
+    </div>
+    <div class="s-nav">
+      <div class="s-item on" id="navNew" onclick="showView('new')">
+        <span class="s-icon">✦</span> Nytt notat
+      </div>
+      <div class="s-item" id="navList" onclick="showView('list')">
+        <span class="s-icon">≡</span> Mine notater
+      </div>
+    </div>
+    <div class="s-bottom">
+      <div class="s-email" id="sEmail"></div>
+      <button class="s-signout" onclick="doSignout()">Logg ut</button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+
+    <!-- ── NY NOTAT VIEW ── -->
+    <div id="viewNew">
+      <div class="page-eyebrow">Klarik AI</div>
+      <div class="page-title">Nytt journalnotat</div>
+      <div class="page-sub">Snakk eller skriv – Klarik gjør resten på sekunder.</div>
+
+      <!-- API banner -->
+      <div class="api-banner on" id="apiBanner">
+        <div class="api-banner-title">⚡ Legg inn OpenAI API-nøkkel for å komme i gang</div>
+        <div class="api-row">
+          <input class="api-input" type="password" id="apiInput" placeholder="sk-..."/>
+          <button class="api-save" onclick="saveApiKey()">Lagre</button>
+        </div>
+      </div>
+
+      <!-- Pasientinfo -->
+      <div class="card">
+        <div class="card-section-label">Pasientinformasjon</div>
+        <div class="field-row">
+          <div>
+            <label class="field-label">Pasientnavn</label>
+            <input class="field-input" id="pName" placeholder="Fornavn Etternavn"/>
+          </div>
+          <div>
+            <label class="field-label">Fødselsdato</label>
+            <input class="field-input" id="pDob" placeholder="dd.mm.åååå"/>
+          </div>
+        </div>
+        <label class="field-label">Behandlingstype</label>
+        <select class="field-input" id="pTreatment">
+          <option value="">Velg behandling...</option>
+          <option>Rutinemessig kontroll</option>
+          <option>Tannfylling</option>
+          <option>Tannrens</option>
+          <option>Røntgen + kontroll</option>
+          <option>Rotfylling</option>
+          <option>Tannprotese</option>
+          <option>Tannbleking</option>
+          <option>Visdomstann</option>
+          <option>Tannimplantat</option>
+          <option>Annet</option>
+        </select>
+
+        <div class="divider"></div>
+
+        <!-- Mode toggle -->
+        <div class="mode-toggle">
+          <button class="mode-btn on" id="btnMic" onclick="setMode('mic')">🎙 Mikrofon</button>
+          <button class="mode-btn" id="btnKw" onclick="setMode('kw')">✏️ Stikkord</button>
+        </div>
+
+        <!-- Mic mode -->
+        <div id="modeMic">
+          <div class="record-center">
+            <button class="rec-btn" id="recBtn" onclick="toggleRec()">🎙️</button>
+            <div class="timer" id="timer">0:00</div>
+            <div class="waveform" id="waveform">
+              <div class="wbar"></div><div class="wbar"></div><div class="wbar"></div>
+              <div class="wbar"></div><div class="wbar"></div><div class="wbar"></div>
+              <div class="wbar"></div>
+            </div>
+            <div class="rec-lbl" id="recLbl">Start opptak</div>
+            <div class="rec-sub" id="recSub">Trykk og beskriv behandlingen</div>
+          </div>
+        </div>
+
+        <!-- Keyword mode -->
+        <div id="modeKw" style="display:none">
+          <textarea class="kw-textarea" id="kwInput"
+            placeholder="Skriv stikkord om behandlingen...&#10;&#10;Eksempel:&#10;Pasient 45 år, smerter tann 36, perkusjonsøm, røntgen viser apikal oppklaring, anbefaler rotfylling"></textarea>
+        </div>
+
+        <!-- Generate button (only shows in kw mode or after recording) -->
+        <button class="gen-btn" id="genBtn" style="display:none" onclick="generateFromKeywords()">
+          Generer journalnotat
+        </button>
+
+        <div class="status-row" id="statusRow">
+          <div class="spin"></div>
+          <span id="statusTxt">Transkriberer...</span>
+        </div>
+
+        <div class="err-box" id="errBox"></div>
+      </div>
+
+      <!-- Result -->
+      <div class="result-card" id="resultCard">
+        <div class="result-header">
+          <div class="result-title">Journalnotat</div>
+          <div class="result-badge">✓ Generert</div>
+        </div>
+        <div class="note-body" id="noteBody"></div>
+        <div class="result-actions">
+          <button class="copy-btn" onclick="copyNote()">Kopier</button>
+          <button class="save-btn" onclick="saveNote()">Lagre notat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LISTE VIEW ── -->
+    <div id="viewList" style="display:none">
+      <div class="page-eyebrow">Arkiv</div>
+      <div class="page-title">Mine notater</div>
+      <div class="page-sub">Alle journalnotater lagret for din klinikk.</div>
+      <div class="notes-list" id="notesList"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Note modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-top">
+      <div class="modal-name" id="modalName"></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-meta" id="modalMeta"></div>
+    <div class="modal-note" id="modalNote"></div>
+    <div class="modal-actions">
+      <button class="copy-btn" style="width:100%" onclick="copyModal()">Kopier notat</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SUPABASE ──
+const { createClient } = supabase;
+const sb = createClient(
+  'https://oilwtfdqfwjugamfeeoj.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pbHd0ZmRxZndqdWdhbWZlZW9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5MjY1MjAsImV4cCI6MjA4OTUwMjUyMH0.FoZuOX_hFrMCf5obqfFp6iLt7odt1pwLCvinypHNl74'
+);
+
+let user       = null;
+let apiKey     = sessionStorage.getItem('k_api') || '';
+let recorder   = null;
+let chunks     = [];
+let isRec      = false;
+let timerInt   = null;
+let secs       = 0;
+let currentNote = '';
+let currentMode = 'mic';
+
+// ── BOOT ──
+(async () => {
+  if (apiKey) document.getElementById('apiBanner').classList.remove('on');
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) enterApp(session.user);
+})();
+
+sb.auth.onAuthStateChange((e, s) => {
+  if (e === 'SIGNED_IN' && s)  enterApp(s.user);
+  if (e === 'SIGNED_OUT')      enterAuth();
+});
+
+// ── AUTH ──
+function switchTab(t) {
+  document.getElementById('formLogin').style.display  = t==='login'  ? 'block' : 'none';
+  document.getElementById('formSignup').style.display = t==='signup' ? 'block' : 'none';
+  document.getElementById('tabLogin').classList.toggle('on',  t==='login');
+  document.getElementById('tabSignup').classList.toggle('on', t==='signup');
+  document.getElementById('authMsg').className = 'auth-msg';
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  if (!email || !pass) return showAuthMsg('Fyll inn e-post og passord.', 'err');
+  setAuthLoading(true);
+  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  setAuthLoading(false);
+  if (error) showAuthMsg(norErr(error.message), 'err');
+}
+
+async function doSignup() {
+  const clinic = document.getElementById('signupClinic').value.trim();
+  const email  = document.getElementById('signupEmail').value.trim();
+  const pass   = document.getElementById('signupPass').value;
+  if (!clinic || !email || !pass) return showAuthMsg('Fyll inn alle feltene.', 'err');
+  if (pass.length < 6) return showAuthMsg('Passordet må være minst 6 tegn.', 'err');
+  setAuthLoading(true);
+  const { error } = await sb.auth.signUp({ email, password: pass, options: { data: { clinic_name: clinic } } });
+  setAuthLoading(false);
+  if (error) showAuthMsg(norErr(error.message), 'err');
+  else showAuthMsg('Konto opprettet! Du er nå logget inn.', 'ok');
+}
+
+async function doSignout() { await sb.auth.signOut(); }
+
+function enterApp(u) {
+  user = u;
+  document.getElementById('authWrap').style.display = 'none';
+  document.getElementById('appWrap').classList.add('on');
+  document.getElementById('sEmail').textContent = u.email;
+  if (apiKey) document.getElementById('apiBanner').classList.remove('on');
+}
+function enterAuth() {
+  user = null;
+  document.getElementById('authWrap').style.display = 'flex';
+  document.getElementById('appWrap').classList.remove('on');
+}
+
+function showAuthMsg(msg, type) {
+  const el = document.getElementById('authMsg');
+  el.textContent = msg; el.className = `auth-msg ${type}`;
+}
+function setAuthLoading(on) {
+  document.getElementById('loginBtn').disabled  = on;
+  document.getElementById('signupBtn').disabled = on;
+}
+function norErr(msg) {
+  if (msg.includes('Invalid login')) return 'Feil e-post eller passord.';
+  if (msg.includes('already registered')) return 'E-posten er allerede registrert.';
+  return msg;
+}
+
+// ── API KEY ──
+function saveApiKey() {
+  const v = document.getElementById('apiInput').value.trim();
+  if (!v.startsWith('sk-')) return alert('Nøkkelen må starte med sk-');
+  apiKey = v;
+  sessionStorage.setItem('k_api', v);
+  document.getElementById('apiBanner').classList.remove('on');
+}
+
+// ── VIEWS ──
+function showView(v) {
+  document.getElementById('viewNew').style.display  = v==='new'  ? 'block' : 'none';
+  document.getElementById('viewList').style.display = v==='list' ? 'block' : 'none';
+  document.getElementById('navNew').classList.toggle('on',  v==='new');
+  document.getElementById('navList').classList.toggle('on', v==='list');
+  if (v === 'list') loadNotes();
+}
+
+// ── INPUT MODE ──
+function setMode(m) {
+  currentMode = m;
+  document.getElementById('modeMic').style.display = m==='mic' ? 'block' : 'none';
+  document.getElementById('modeKw').style.display  = m==='kw'  ? 'block' : 'none';
+  document.getElementById('btnMic').classList.toggle('on', m==='mic');
+  document.getElementById('btnKw').classList.toggle('on',  m==='kw');
+  document.getElementById('genBtn').style.display  = m==='kw'  ? 'block' : 'none';
+  document.getElementById('resultCard').classList.remove('on');
+  hideErr();
+}
+
+// ── RECORDING ──
+function toggleRec() {
+  if (!apiKey) return showErr('Legg inn OpenAI API-nøkkel øverst.');
+  isRec ? stopRec() : startRec();
+}
+
+async function startRec() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    chunks = [];
+    recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = () => { stream.getTracks().forEach(t => t.stop()); processAudio(); };
+    recorder.start(250);
+    isRec = true;
+
+    document.getElementById('recBtn').classList.add('recording');
+    document.getElementById('recBtn').textContent = '⏹';
+    document.getElementById('recLbl').textContent = 'Stopp opptak';
+    document.getElementById('recSub').textContent = 'Snakk om behandlingen...';
+    document.getElementById('waveform').classList.add('on');
+    document.getElementById('timer').classList.add('on');
+    document.getElementById('resultCard').classList.remove('on');
+    hideErr();
+
+    secs = 0;
+    timerInt = setInterval(() => {
+      secs++;
+      const m = Math.floor(secs/60), s = String(secs%60).padStart(2,'0');
+      document.getElementById('timer').textContent = `${m}:${s}`;
+    }, 1000);
+  } catch(e) {
+    showErr('Kunne ikke åpne mikrofon. Sjekk nettlesertillatelsene.');
+  }
+}
+
+function stopRec() {
+  if (recorder?.state !== 'inactive') recorder.stop();
+  isRec = false;
+  clearInterval(timerInt);
+  document.getElementById('recBtn').classList.remove('recording');
+  document.getElementById('recBtn').textContent = '🎙️';
+  document.getElementById('recLbl').textContent = 'Behandler...';
+  document.getElementById('recSub').textContent = 'Klarik jobber...';
+  document.getElementById('waveform').classList.remove('on');
+  document.getElementById('timer').classList.remove('on');
+}
+
+async function processAudio() {
+  showStatus('Transkriberer lydopptak...');
+  try {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const fd = new FormData();
+    fd.append('file', blob, 'rec.webm');
+    fd.append('model', 'whisper-1');
+    fd.append('language', 'no');
+
+    const wRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST', headers: { 'Authorization': `Bearer ${apiKey}` }, body: fd
+    });
+    if (!wRes.ok) throw new Error((await wRes.json()).error?.message || 'Whisper-feil');
+    const transcript = (await wRes.json()).text;
+    if (!transcript?.trim()) throw new Error('Opptaket var for kort. Prøv igjen.');
+
+    await generateNote(transcript);
+  } catch(e) {
+    hideStatus(); showErr(e.message);
+    document.getElementById('recLbl').textContent = 'Start opptak';
+    document.getElementById('recSub').textContent = 'Trykk og beskriv behandlingen';
+  }
+}
+
+async function generateFromKeywords() {
+  const kw = document.getElementById('kwInput').value.trim();
+  if (!kw) return showErr('Skriv inn stikkord først.');
+  if (!apiKey) return showErr('Legg inn OpenAI API-nøkkel øverst.');
+  await generateNote(kw);
+}
+
+async function generateNote(input) {
+  showStatus('Genererer journalnotat...');
+  try {
+    const name      = document.getElementById('pName').value      || 'Ukjent pasient';
+    const dob       = document.getElementById('pDob').value       || 'Ikke oppgitt';
+    const treatment = document.getElementById('pTreatment').value || 'Ikke spesifisert';
+    const today     = new Date().toLocaleDateString('no-NO', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+    const prompt = `Du er et journalnotat-system for norske tannklinikker. Skriv et profesjonelt journalnotat.
+
+PASIENT: ${name} | Født: ${dob} | Dato: ${today} | Behandling: ${treatment}
+INPUT FRA TANNLEGE: "${input}"
+
+KRAV:
+- Skriv KUN ren tekst uten noen markdown, stjerner (*), understrekinger eller hashtags
+- Bruk disse seksjonene: Dato / Pasient / Behandling utført / Kliniske funn / Plan
+- Skill seksjoner med linjeskift
+- Profesjonelt norsk tannlegespråk
+- Presis og kortfattet`;
+
+    const gRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o', max_tokens: 700, temperature: 0.2,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!gRes.ok) throw new Error((await gRes.json()).error?.message || 'GPT-feil');
+    const note = (await gRes.json()).choices[0].message.content.trim();
+
+    currentNote = note;
+    hideStatus();
+    renderNote(note);
+
+    document.getElementById('recLbl').textContent = 'Start opptak';
+    document.getElementById('recSub').textContent = 'Trykk og beskriv behandlingen';
+  } catch(e) {
+    hideStatus(); showErr(`Feil: ${e.message}`);
+    document.getElementById('recLbl').textContent = 'Start opptak';
+    document.getElementById('recSub').textContent = 'Trykk og beskriv behandlingen';
+  }
+}
+
+function renderNote(note) {
+  // Clean any stray markdown just in case
+  const clean = note
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/#{1,6}\s/g, '');
+
+  // Split into lines and render
+  const lines = clean.split('\n').filter(l => l.trim());
+  const html = lines.map(line => {
+    const trimmed = line.trim();
+    // Check if it's a section header (ends with : and is short)
+    if (trimmed.endsWith(':') && trimmed.length < 30) {
+      return `<div class="note-section"><strong>${trimmed}</strong></div>`;
+    }
+    // Check if it contains a label like "Dato: ..."
+    const colonIdx = trimmed.indexOf(':');
+    if (colonIdx > 0 && colonIdx < 25 && colonIdx < trimmed.length - 1) {
+      const label = trimmed.substring(0, colonIdx + 1);
+      const val   = trimmed.substring(colonIdx + 1).trim();
+      return `<div class="note-section"><strong>${label}</strong> ${val}</div>`;
+    }
+    return `<div class="note-section">${trimmed}</div>`;
+  }).join('');
+
+  document.getElementById('noteBody').innerHTML = html;
+  document.getElementById('resultCard').classList.add('on');
+  document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── SAVE NOTE ──
+async function saveNote() {
+  if (!currentNote || !user) return;
+  const { error } = await sb.from('notes').insert({
+    user_id:      user.id,
+    patient_name: document.getElementById('pName').value      || 'Ukjent',
+    patient_dob:  document.getElementById('pDob').value       || '',
+    treatment:    document.getElementById('pTreatment').value || '',
+    note:         currentNote,
+    created_at:   new Date().toISOString()
+  });
+
+  if (error) { showErr(`Kunne ikke lagre: ${error.message}`); return; }
+
+  const btn = document.querySelector('.save-btn');
+  btn.textContent = '✓ Lagret!';
+  btn.style.background = '#16A34A';
+  setTimeout(() => {
+    btn.textContent = 'Lagre notat';
+    btn.style.background = '';
+    document.getElementById('resultCard').classList.remove('on');
+    document.getElementById('pName').value = '';
+    document.getElementById('pDob').value  = '';
+    document.getElementById('pTreatment').value = '';
+    document.getElementById('kwInput').value = '';
+    currentNote = '';
+  }, 1800);
+}
+
+// ── LOAD NOTES ──
+async function loadNotes() {
+  if (!user) return;
+  const { data, error } = await sb.from('notes').select('*')
+    .eq('user_id', user.id).order('created_at', { ascending: false });
+
+  const list = document.getElementById('notesList');
+  if (error || !data?.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Ingen notater ennå.<br>Gå til <strong>Nytt notat</strong> for å komme i gang.</div></div>`;
+    return;
+  }
+  list.innerHTML = data.map(n => `
+    <div class="note-item" onclick='openNote(${JSON.stringify(n).replace(/'/g,"&#39;")})'>
+      <div class="ni-top">
+        <div class="ni-name">${n.patient_name}</div>
+        <div class="ni-date">${new Date(n.created_at).toLocaleDateString('no-NO')}</div>
+      </div>
+      <div class="ni-treatment">${n.treatment || 'Ingen behandlingstype'}</div>
+      <div class="ni-preview">${n.note.replace(/\n/g,' ')}</div>
+    </div>
+  `).join('');
+}
+
+function openNote(n) {
+  document.getElementById('modalName').textContent = n.patient_name;
+  document.getElementById('modalMeta').innerHTML =
+    `Født: ${n.patient_dob||'Ikke oppgitt'}<br>Behandling: ${n.treatment||'Ikke spesifisert'}<br>Dato: ${new Date(n.created_at).toLocaleDateString('no-NO')}`;
+  document.getElementById('modalNote').textContent = n.note;
+  document.getElementById('modal').classList.add('on');
+}
+function closeModal() { document.getElementById('modal').classList.remove('on'); }
+function copyModal() {
+  navigator.clipboard.writeText(document.getElementById('modalNote').textContent)
+    .then(() => { document.querySelector('.modal-actions .copy-btn').textContent = '✓ Kopiert!'; });
+}
+
+function copyNote() {
+  navigator.clipboard.writeText(currentNote).then(() => {
+    const btn = document.querySelector('.result-actions .copy-btn');
+    btn.textContent = '✓ Kopiert!';
+    setTimeout(() => btn.textContent = 'Kopier', 2000);
+  });
+}
+
+function showStatus(msg) {
+  document.getElementById('statusTxt').textContent = msg;
+  document.getElementById('statusRow').classList.add('on');
+}
+function hideStatus() { document.getElementById('statusRow').classList.remove('on'); }
+function showErr(msg) {
+  const el = document.getElementById('errBox');
+  el.textContent = msg; el.classList.add('on');
+}
+function hideErr() { document.getElementById('errBox').classList.remove('on'); }
+</script>
+</body>
+</html>
